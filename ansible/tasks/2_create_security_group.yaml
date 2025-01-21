@@ -1,0 +1,26 @@
+---
+- name: Create security group
+  os_security_group:
+    cloud: openstack
+    state: present
+    name: "{{ security_group_name }}"
+    description: "Security group that allows all ICMP, TCP, and UDP traffic"
+  register: sg_result
+
+- name: Add security group rules
+  os_security_group_rule:
+    cloud: openstack
+    security_group: "{{ sg_result.security_group.id }}"
+    direction: "{{ item.direction }}"
+    ethertype: IPv4
+    protocol: "{{ item.protocol }}"
+    port_range_min: "{{ item.port_range_min | default(omit) }}"
+    port_range_max: "{{ item.port_range_max | default(omit) }}"
+  loop:
+    - { direction: ingress, protocol: icmp }
+    - { direction: egress, protocol: icmp }
+    - { direction: ingress, protocol: tcp, port_range_min: 1, port_range_max: 65535 }
+    - { direction: egress, protocol: tcp, port_range_min: 1, port_range_max: 65535 }
+    - { direction: ingress, protocol: udp, port_range_min: 1, port_range_max: 65535 }
+    - { direction: egress, protocol: udp, port_range_min: 1, port_range_max: 65535 }
+

@@ -1,0 +1,18 @@
+---
+- name: Provision OpenStack Resources
+  hosts: localhost
+  gather_facts: false
+  collections:
+    - openstack.cloud
+  vars_files:
+    - vars/var.yaml
+
+  # Ansible 병렬 실행(forks) 등은 ansible.cfg 또는 CLI에서 설정
+  # 예: ansible-playbook -i inventory main.yaml -f 20 -vvv
+
+  tasks:
+    - include_tasks: tasks/1_create_keypair.yaml
+    - include_tasks: tasks/2_create_security_group.yaml
+    - include_tasks: tasks/3_create_networks_and_subnets.yaml
+    - include_tasks: tasks/4_lookup_infra_net.yaml
+    - include_tasks: tasks/5_create_nodes.yaml

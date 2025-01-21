@@ -1,0 +1,51 @@
+keypair_name: "k8s-hwan"
+public_key_path: "/root/ansible-venv/.ssh/id_rsa.pub"
+
+security_group_name: "k8s-SG"
+
+networks:
+  - name: k8s-internal
+    subnet:
+      name: k8s-internal
+      cidr: 192.168.0.0/16
+      gateway: null
+      dhcp: false
+
+  - name: k8s-external
+    subnet:
+      name: k8s-external
+      cidr: 10.10.10.0/24
+      gateway: 10.10.10.254
+      dhcp: false
+
+nodes:
+  - name: k8s-node-01
+    flavor_name: t1.k8s
+    image_name: rocky-9-linux
+    internal_ip: 192.168.10.10
+    external_ip: null
+
+  - name: k8s-node-02
+    flavor_name: t1.k8s
+    image_name: rocky-9-linux
+    internal_ip: 192.168.10.20
+    external_ip: 10.10.10.20
+
+  - name: k8s-node-03
+    flavor_name: t1.k8s
+    image_name: rocky-9-linux
+    internal_ip: 192.168.10.30
+    external_ip: 10.10.10.30
+
+  - name: k8s-node-04
+    flavor_name: t1.k8s
+    image_name: rocky-9-linux
+    internal_ip: 192.168.10.40
+    external_ip: null
+
+  - name: client
+    flavor_name: m1.window
+    image_name: windows-10
+    internal_ip: 192.168.10.100
+    external_ip: 10.10.10.100
+

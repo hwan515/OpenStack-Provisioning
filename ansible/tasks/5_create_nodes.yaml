@@ -1,0 +1,33 @@
+---
+- name: Provision nodes asynchronously
+  os_server:
+    cloud: openstack
+    state: present
+    name: "{{ item.name }}"
+    flavor: "{{ item.flavor_name }}"
+    image: "{{ item.image_name }}"
+    key_name: "{{ keypair_name }}"
+    security_groups:
+      - "{{ security_group_name }}"
+    nics: "{{ build_nics(item) }}"
+  loop: "{{ nodes }}"
+  vars:
+        infra_net_name: "{{ infra_net_info.networks[0].name if infra_net_info.networks|length > 0 else '' }}"
+        build_nics: >
+          {[{'net-name': 'k8s-internal', 'fixed_ip': item.internal_ip}] +
+          (item.external_ip is not none | ternary(
+            [{'net-name': 'k8s-external', 'fixed_ip': item.external_ip}], [])) +
+          [{'net-name': infra_net_name}]}
+  async: 300
+  poll: 0
+  register: server_jobs
+
+- name: Wait for server provisioning
+  async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: server_results
+  until: server_results.finished
+  retries: 10
+  delay: 10
+  loop: "{{ server_jobs.results }}"
+

@@ -1,0 +1,38 @@
+- name: Provision OpenStack Resources
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - vars/var.yml
+  tasks:
+    - name: Create networks
+      os_network:
+        cloud: default
+        state: present
+        name: "{{ item.name }}"
+      loop: "{{ networks }}"
+
+    - name: Create subnets
+      os_subnet:
+        cloud: default
+        state: present
+        network_name: "{{ item.name }}"
+        name: "{{ item.subnet.name }}"
+        cidr: "{{ item.subnet.cidr }}"
+        gateway_ip: "{{ item.subnet.gateway }}"
+        enable_dhcp: "{{ item.subnet.dhcp }}"
+      loop: "{{ networks }}"
+
+    - name: Provision nodes
+      os_server:
+        cloud: default
+        state: present
+        name: "{{ item.name }}"
+        flavor: "{{ item.flavor }}"
+        networks:
+          - net-name: k8s-internal
+            fixed-ip: "{{ item.internal_ip }}"
+          - net-name: k8s-external
+            fixed-ip: "{{ item.external_ip }}"
+        image: "{{ item.image }}"
+      loop: "{{ nodes }}"
+

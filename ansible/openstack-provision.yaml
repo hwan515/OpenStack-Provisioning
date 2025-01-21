@@ -1,0 +1,145 @@
+---
+- name: Provision OpenStack Resources
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - vars/var.yaml
+
+  vars:
+    keypair_name: "k8s-hwan"
+    public_key_path: "/root/ansible-venv/.ssh/id_rsa.pub"
+    security_group_name: "k8s-SG"
+
+  tasks:
+    ################################################################
+    # 1. Key Pair 생성
+    ################################################################
+    - name: Create keypair
+      os_keypair:
+        cloud: openstack
+        state: present
+        name: "{{ keypair_name }}"
+        public_key_file: "{{ public_key_path }}"
+      async: 300
+      poll: 0
+      register: keypair_job
+
+    - name: Wait for keypair creation
+      async_status:
+        jid: "{{ keypair_job.ansible_job_id }}"
+      register: keypair_result
+      until: keypair_result.finished
+      retries: 10
+      delay: 5
+
+    ################################################################
+    # 2. Security Group 생성 및 룰 추가
+    ################################################################
+    - name: Create security group
+      os_security_group:
+        cloud: openstack
+        state: present
+        name: "{{ security_group_name }}"
+        description: "Security group that allows all ICMP, TCP, and UDP traffic"
+      register: sg_result
+
+    - name: Add security group rules
+      os_security_group_rule:
+        cloud: openstack
+        security_group: "{{ sg_result.security_group.id }}"
+        direction: "{{ item.direction }}"
+        ethertype: IPv4
+        protocol: "{{ item.protocol }}"
+        port_range_min: "{{ item.port_range_min | default(omit) }}"
+        port_range_max: "{{ item.port_range_max | default(omit) }}"
+      loop:
+        - { direction: ingress, protocol: icmp }
+        - { direction: egress, protocol: icmp }
+        - { direction: ingress, protocol: tcp, port_range_min: 1, port_range_max: 65535 }
+        - { direction: egress, protocol: tcp, port_range_min: 1, port_range_max: 65535 }
+        - { direction: ingress, protocol: udp, port_range_min: 1, port_range_max: 65535 }
+        - { direction: egress, protocol: udp, port_range_min: 1, port_range_max: 65535 }
+
+    ################################################################
+    # 3. 네트워크 & 서브넷 생성
+    ################################################################
+    - name: Create networks
+      os_network:
+        cloud: openstack
+        state: present
+        name: "{{ item.name }}"
+      loop: "{{ networks }}"
+      async: 300
+      poll: 0
+      register: network_jobs
+
+    - name: Wait for network creation
+      async_status:
+        jid: "{{ item.ansible_job_id }}"
+      register: network_result
+      until: network_result.finished
+      retries: 10
+      delay: 5
+      loop: "{{ network_jobs.results }}"
+
+    - name: Create subnets
+      os_subnet:
+        cloud: openstack
+        state: present
+        network_name: "{{ item.name }}"
+        name: "{{ item.subnet.name }}"
+        cidr: "{{ item.subnet.cidr }}"
+        gateway_ip: "{{ item.subnet.gateway if item.subnet.gateway is not none else omit }}"
+        enable_dhcp: "{{ item.subnet.dhcp }}"
+      loop: "{{ networks }}"
+
+    ################################################################
+    # 4. 기존 infra-net 조회
+    ################################################################
+    - name: Lookup existing infra-net
+      os_networks_info:
+        cloud: openstack
+        filters:
+          name: "infra-net"
+      register: infra_net_info
+
+    - name: Fail if infra-net not found
+      fail:
+        msg: "Could not find infra-net"
+      when: infra_net_info.networks | length == 0
+
+    ################################################################
+    # 5. 서버(노드) 생성
+    ################################################################
+    - name: Provision nodes asynchronously
+      os_server:
+        cloud: openstack
+        state: present
+        name: "{{ item.name }}"
+        flavor: "{{ item.flavor_name }}"
+        image: "{{ item.image_name }}"
+        key_name: "{{ keypair_name }}"
+        security_groups:
+          - "{{ security_group_name }}"
+        nics: "{{ build_nics(item) }}"
+      loop: "{{ nodes }}"
+      vars:
+        infra_net_name: "{{ infra_net_info.networks[0].name if infra_net_info.networks|length > 0 else '' }}"
+        build_nics: >
+          {[{'net-name': 'k8s-internal', 'fixed_ip': item.internal_ip}] +
+          (item.external_ip is not none | ternary(
+            [{'net-name': 'k8s-external', 'fixed_ip': item.external_ip}], [])) +
+          [{'net-name': infra_net_name}]}
+      async: 300
+      poll: 0
+      register: server_jobs
+
+    - name: Wait for server provisioning
+      async_status:
+        jid: "{{ item.ansible_job_id }}"
+      register: server_results
+      until: server_results.finished
+      retries: 10
+      delay: 10
+      loop: "{{ server_jobs.results }}"
+

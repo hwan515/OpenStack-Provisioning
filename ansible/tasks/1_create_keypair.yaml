@@ -1,0 +1,18 @@
+- name: Create keypair asynchronously
+  os_keypair:
+    cloud: openstack
+    state: present
+    name: "{{ keypair_name }}"
+    public_key_file: "{{ public_key_path }}"
+  async: 300
+  poll: 0
+  register: keypair_job
+
+- name: Wait for keypair creation
+  async_status:
+    jid: "{{ keypair_job.ansible_job_id }}"
+  register: keypair_result
+  until: keypair_result.finished
+  retries: 10
+  delay: 5
+

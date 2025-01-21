@@ -1,0 +1,31 @@
+---
+- name: Create networks
+  os_network:
+    cloud: openstack
+    state: present
+    name: "{{ item.name }}"
+  loop: "{{ networks }}"
+  async: 300
+  poll: 0
+  register: network_jobs
+
+- name: Wait for network creation
+  async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: network_result
+  until: network_result.finished
+  retries: 10
+  delay: 5
+  loop: "{{ network_jobs.results }}"
+
+- name: Create subnets
+  os_subnet:
+    cloud: openstack
+    state: present
+    network_name: "{{ item.name }}"
+    name: "{{ item.subnet.name }}"
+    cidr: "{{ item.subnet.cidr }}"
+    gateway_ip: "{{ item.subnet.gateway if item.subnet.gateway is not none else omit }}"
+    enable_dhcp: "{{ item.subnet.dhcp }}"
+  loop: "{{ networks }}"
+

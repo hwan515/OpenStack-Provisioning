@@ -1,0 +1,13 @@
+---
+- name: Lookup existing infra-net
+  os_networks_info:
+    cloud: openstack
+    filters:
+      name: "infra-net"
+  register: infra_net_info
+
+- name: Fail if infra-net not found
+  fail:
+    msg: "Could not find infra-net"
+  when: infra_net_info.networks | length == 0
+

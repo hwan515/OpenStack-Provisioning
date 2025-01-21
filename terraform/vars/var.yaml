@@ -1,0 +1,45 @@
+networks:
+  - name: k8s-internal
+    subnet:
+      name: k8s-internal
+      cidr: 192.168.0.0/16
+      gateway: null
+      dhcp: false
+
+  - name: k8s-external
+    subnet:
+      name: k8s-external
+      cidr: 10.10.0.0/24
+      gateway: 10.10.10.254
+      dhcp: false
+
+nodes:
+  - name: k8s-node-01
+    internal_ip: 192.168.10.10
+    external_ip: 10.10.10.10
+    flavor: t1.k8s
+    image: rocky-9-linux
+
+  - name: k8s-node-02
+    internal_ip: 192.168.10.20
+    external_ip: 10.10.10.20
+    flavor: t1.k8s
+    image: rocky-9-linux
+
+  - name: k8s-node-03
+    internal_ip: 192.168.10.30
+    external_ip: 10.10.10.30
+    flavor: t1.k8s
+    image: rocky-9-linux
+
+  - name: k8s-node-04
+    internal_ip: 192.168.10.100
+    external_ip: 10.10.10.100
+    flavor: t1.k8s
+    image: rocky-9-linux
+
+  - name: client
+    internal_ip: 192.168.10.200
+    external_ip: 10.10.10.200
+    flavor: m1.window
+    image: windows-10
