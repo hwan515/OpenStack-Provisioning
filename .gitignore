@@ -1,0 +1,9 @@
+*
+
+!.gitignore
+
+!vars/
+!vars/**
+!main.yml
+!openstack-provision.yml
+!cloud-init.tpl
